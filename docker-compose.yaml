@@ -1,0 +1,71 @@
+version: "3"
+services:
+  mysql:
+    image: mysql:latest
+    restart: on-failure
+    environment:
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=admin
+      - MYSQL_ROOT_PASSWORD=admin
+      - MYSQL_DATABASE=assignment-2
+    ports:
+      - "3306:3306"
+    expose:
+      - 3306
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: on-failure
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+    links:
+      - mysql
+    depends_on:
+      - mysql
+      - migrate
+
+  migrate:
+    image: migrate/migrate
+    restart: on-failure
+    volumes:
+      - ./db/migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "mysql://user:admin@tcp(mysql:3306)/assignment-2",
+        "up",
+      ]
+    depends_on:
+      - mysql
+
+  golang-service:
+    image: golang:latest
+    working_dir: /golang-service
+    volumes:
+      - ./:/golang-service
+    command: /bin/bash -c "go run ."
+    ports:
+      - "4444:4444/tcp"
+    environment:
+      - SERVER_PORT=4444
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=admin
+      - MYSQL_ROOT_PASSWORD=admin
+      - MYSQL_DATABASE=assignment-2
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - SESSION_ID=secret
+      - SESSION_KEY=secret
+      - SESSION_DB=session
+    depends_on:
+      - migrate
+      - mysql
+      - phpmyadmin
+
+networks:
+  default:
